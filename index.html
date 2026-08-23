@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>地盤面Maker v2 ― ポンチ絵入力</title>
+<style>
+  :root{
+    --bg:#f5f5f4; --card:#ffffff; --line:#d6d3d1; --ink:#1c1917;
+    --sub:#57534e; --accent:#0f766e; --accent2:#0d9488; --warn:#b45309;
+    --warnbg:#fef3c7; --okbg:#ecfdf5; --hi:#f0fdfa;
+    --hcol:#16a34a; --hbg:#dcfce7; --dcol:#c2760c; --dbg:#fde9c8; --datum:#dc2626;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    line-height:1.6;padding:24px;}
+  .wrap{max-width:1000px;margin:0 auto;}
+  h1{font-size:30px;margin:0 0 2px;}
+  .ver{font-size:12px;color:var(--sub);margin:0 0 14px;}
+  .lead{color:var(--sub);font-size:13px;margin:0 0 18px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:18px;margin-bottom:16px;}
+  .card h2{font-size:14px;margin:0 0 12px;color:var(--accent);
+    letter-spacing:.02em;border-bottom:1px solid var(--line);padding-bottom:8px;}
+  label{font-size:13px;color:var(--sub);display:block;margin-bottom:4px;}
+  input[type=text],input[type=number]{font-size:15px;padding:8px 10px;
+    border:1px solid var(--line);border-radius:7px;width:100%;background:#fff;}
+  input:focus{outline:2px solid var(--accent2);border-color:var(--accent2);}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+  .row > div{flex:1;min-width:120px;}
+  button{font-size:14px;padding:9px 16px;border-radius:7px;border:1px solid var(--accent);
+    background:var(--accent);color:#fff;cursor:pointer;}
+  button.ghost{background:#fff;color:var(--accent);}
+  button:hover{filter:brightness(1.05);}
+  .hint{font-size:12px;color:var(--sub);margin-top:6px;}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+  .toolbar input[type=text]{flex:1;min-width:160px;max-width:320px;}
+  .toolbar button{font-size:13px;padding:7px 12px;}
+  .savednote{font-size:11px;color:var(--accent);margin-left:auto;}
+  .step{opacity:.45;pointer-events:none;transition:opacity .2s;}
+  .step.active{opacity:1;pointer-events:auto;}
+  .btnrow{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+
+  /* ---- ポンチ絵 ---- */
+  .scroller{overflow-x:auto;}
+  .sketch{position:relative;width:100%;min-width:900px;aspect-ratio:1200/470;}
+  .sketch svg{width:100%;height:100%;display:block;}
+  .fld{position:absolute;transform:translate(-50%,-50%);}
+  .fld input{font-size:12px;padding:2px 4px;width:58px;text-align:right;border-radius:5px;
+    font-variant-numeric:tabular-nums;line-height:1.3;}
+  .fld.h input{border:1.5px solid var(--hcol);background:var(--hbg);color:#14532d;}
+  .fld.d input{border:1.5px solid var(--dcol);background:var(--dbg);color:#7c2d12;}
+  .fld input:focus{outline:2px solid var(--accent2);}
+  .fld.sl{font-size:15px;color:var(--sub);font-weight:600;}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--sub);margin-bottom:10px;}
+  .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px;}
+  .sw.h{background:var(--hbg);border:1.5px solid var(--hcol);}
+  .sw.d{background:var(--dbg);border:1.5px solid var(--dcol);}
+  .sw.r{background:#fff;border-top:2px dashed var(--datum);border-radius:0;height:0;
+    width:16px;vertical-align:4px;}
+
+  /* ---- 段差トグル ---- */
+  .ptlist{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+  .ptrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--sub);
+    border:1px solid var(--line);border-radius:20px;padding:3px 8px 3px 12px;background:#fafaf9;}
+  .ptrow.on{background:var(--hi);border-color:var(--accent2);}
+  .ptrow b{color:var(--ink);font-size:13px;}
+  .ptrow.on b{color:var(--accent);}
+  .pttog{display:inline-flex;align-items:center;gap:4px;cursor:pointer;}
+  .pttog input{accent-color:var(--accent2);margin:0;}
+  button.mini{font-size:11px;padding:2px 9px;border-radius:14px;
+    border:1px solid var(--line);background:#fff;color:var(--sub);}
+  button.mini:hover{border-color:var(--accent2);color:var(--accent);}
+  button.mini.danger:hover{border-color:#b91c1c;color:#b91c1c;}
+
+  table{border-collapse:collapse;width:auto;font-size:13px;margin-top:6px;}
+  th,td{border:1.5px solid var(--ink);padding:3px 7px;text-align:center;white-space:nowrap;}
+  th{background:#f5f5f4;font-weight:600;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  tfoot td{font-weight:600;background:#f5f5f4;}
+  .result{font-size:15px;margin:0;}
+  .bignum{font-size:30px;font-weight:700;color:var(--accent);
+    font-variant-numeric:tabular-nums;margin:2px 0 0;}
+  .formula{font-family:"SFMono-Regular",Consolas,monospace;font-size:14px;
+    background:#fafaf9;border:1px solid var(--line);border-radius:7px;padding:12px;
+    white-space:pre-wrap;line-height:1.7;overflow-x:auto;}
+  .warn{background:var(--warnbg);border:1px solid var(--warn);color:#7c2d12;
+    border-radius:7px;padding:10px 12px;font-size:13px;margin-top:10px;}
+  .ok{background:var(--okbg);border:1px solid var(--accent2);color:#065f46;
+    border-radius:7px;padding:10px 12px;font-size:13px;margin-top:10px;}
+  .foot{font-size:11px;color:var(--sub);margin-top:8px;}
+  .sub{font-size:13px;color:var(--sub);margin:16px 0 4px;font-weight:600;}
+  @media print{
+    body{background:#fff;padding:0;} .noprint{display:none!important;}
+    .card{border:1px solid #999;break-inside:avoid;}
+    .step{opacity:1!important;}
+    .sketch{min-width:0;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>地盤面Maker</h1>
+  <p class="ver">v2 ― ポンチ絵に直接入力するタイプ</p>
+  <p class="lead">建築物が周囲の地面と接する位置を一周した展開図（ポンチ絵）の上で、<b style="color:var(--hcol)">高さ</b>と<b style="color:var(--dcol)">区間距離</b>を直接入力します。台形積算 ÷ 周長で地盤面を算定します。単位はすべて mm、基準ラインを 0 とした相対高さで入力してください。</p>
+
+  <div class="toolbar noprint">
+    <input type="text" id="projName" placeholder="物件名（任意）">
+    <button class="ghost" id="saveFileBtn">データを保存（書出）</button>
+    <button class="ghost" id="loadFileBtn">データを読込</button>
+    <input type="file" id="fileInput" accept="application/json" style="display:none">
+    <span class="savednote" id="savedNote"></span>
+  </div>
+
+  <div class="card" id="card1">
+    <h2>STEP 1 ── 点の数を決める</h2>
+    <div class="row">
+      <div style="max-width:200px">
+        <label for="ptCount">建築物が地面と接する位置の点数</label>
+        <input type="number" id="ptCount" min="3" max="24" step="1" value="4">
+      </div>
+      <div style="flex:0 0 auto">
+        <button id="makeBtn">ポンチ絵を作成</button>
+      </div>
+    </div>
+    <p class="hint">隅角部の数を入れてください。四角形なら 4 です。一周して始点に戻るため、区間数も同じ数になります。作成後に点数を変えると、入力済みの値は前から順に引き継がれます。</p>
+  </div>
+
+  <div class="card step" id="card2">
+    <h2>STEP 2 ── ポンチ絵に数値を入力</h2>
+    <div class="legend noprint">
+      <span><span class="sw h"></span>高さ（基準ラインからの相対値・下がる場合は負数）</span>
+      <span><span class="sw d"></span>区間距離</span>
+      <span><span class="sw r"></span>基準ライン（0）</span>
+    </div>
+    <div class="scroller">
+      <div class="sketch" id="sketch"></div>
+    </div>
+    <p class="hint">数値を確定（<b>Tab</b> または <b>Enter</b>）すると絵が描き直され、実際の寸法比に近づきます。入力途中は模式的な形で表示されます。</p>
+    <div class="sub">点ごとの設定</div>
+    <p class="hint" style="margin-top:0"><b>段差</b>…擁壁やからぼりなどで、その点を境に地面が鉛直に切り替わる場合にチェックすると、<b>到達側</b>と<b>出発側</b>の 2 つの高さを入力できます。<br>
+    <b>挿入</b>…その点の後ろに点を 1 つ追加します（以降の点は繰り下がります）。<b>削除</b>…その点を削除します（以降の点は繰り上がります）。いずれも区間距離が分割・統合されるため、その区間は入力し直しになります。</p>
+    <div class="ptlist noprint" id="ptList"></div>
+    <div class="btnrow noprint">
+      <button id="calcBtn">計算する</button>
+      <button class="ghost" id="clearValBtn">数値だけ消す</button>
+      <button class="ghost" id="resetBtn">最初からやり直す</button>
+    </div>
+  </div>
+
+  <div class="card step" id="card3">
+    <h2>計算結果</h2>
+    <div id="resultArea"></div>
+    <div class="btnrow noprint">
+      <button class="ghost" onclick="window.print()">印刷 / PDF保存</button>
+      <button class="ghost" id="resetBtn2">最初からやり直す</button>
+    </div>
+    <p class="foot">根拠：建築基準法施行令第2条第2項（地盤面の定義）。接する位置の高低差が3mを超える場合は、3m以内ごとに区分して各々の平均地盤面を算定する必要があります（本アプリは超過の有無を判定し警告します。区分ごとの算定には対応していません）。</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ===== 状態 =====
+  // pts[i] = {dual:bool, hIn:number, hOut:number}
+  //   hOut … その点から次の点へ向かう側の高さ
+  //   hIn  … 前の点から到達した側の高さ（dual=false のとき hOut と同値）
+  // dists[i] = 点i → 点i+1 の距離（最後は 点n-1 → 点0）
+  var pts = [], dists = [], dSet = [], built = false;
+
+  var $ = function(id){ return document.getElementById(id); };
+  var sketch = $('sketch'), card2 = $('card2'), card3 = $('card3');
+
+  function num(s){
+    if(s===null || s===undefined) return null;
+    s = String(s).trim().replace(/,/g,'');
+    if(s==='') return null;
+    var v = Number(s);
+    return isFinite(v) ? v : null;
+  }
+  function fmt(v){ return v.toLocaleString('ja-JP',{maximumFractionDigits:3}); }
+  function ptName(i){ return 'P'+(i+1); }
+  function esc(s){ return String(s).replace(/[<>&"]/g,function(c){
+    return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }); }
+
+  // ===== 自動保存 =====
+  var LS_KEY='jibanMaker.v2', saveTimer=null;
+  function save(){
+    try{
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        v:2, name:$('projName').value||'', pts:pts, dists:dists, dSet:dSet, ts:Date.now()
+      }));
+      var n=$('savedNote'); n.textContent='自動保存しました';
+      clearTimeout(saveTimer); saveTimer=setTimeout(function(){n.textContent='';},1500);
+    }catch(e){/* localStorage不可環境は無視 */}
+  }
+
+  // ===== 幾何 =====
+  var VB_W=1200, VB_H=470, X0=95, X1=1105, DATUM=265, UP=140, DOWN=90, DIMOFF=30;
+
+  // 描画用の距離（未入力でも絵が潰れないように最小値を与える）
+  function layoutDists(){
+    var n=dists.length, pos=[], i;
+    for(i=0;i<n;i++) if(dists[i]>0) pos.push(dists[i]);
+    if(pos.length===0){ var eq=[]; for(i=0;i<n;i++) eq.push(1); return eq; }
+    var sum=0; for(i=0;i<pos.length;i++) sum+=pos[i];
+    var minShow = sum/pos.length*0.25;
+    var out=[]; for(i=0;i<n;i++) out.push(dists[i]>0?dists[i]:minShow);
+    return out;
+  }
+
+  function allHeights(){
+    var a=[], i;
+    for(i=0;i<pts.length;i++){ a.push(pts[i].hOut); if(pts[i].dual) a.push(pts[i].hIn); }
+    return a;
+  }
+
+  // 展開図の頂点列（始点P1から一周して再びP1へ）
+  function layout(){
+    var n=pts.length, ld=layoutDists(), i;
+    var total=0; for(i=0;i<n;i++) total+=ld[i];
+    var sx=(X1-X0)/total;
+    var xs=[X0];
+    for(i=0;i<n;i++) xs.push(xs[i]+ld[i]*sx);
+    xs[n]=X1;
+
+    var hs=allHeights();
+    var hi=0, lo=0;
+    for(i=0;i<hs.length;i++){ if(hs[i]>hi) hi=hs[i]; if(hs[i]<lo) lo=hs[i]; }
+    var sy=Infinity;
+    if(hi>0) sy=Math.min(sy, UP/hi);
+    if(lo<0) sy=Math.min(sy, DOWN/(-lo));
+    if(!isFinite(sy)) sy=0;
+    var y=function(h){ return DATUM - h*sy; };
+
+    // 折れ線：P1(out) → P2(in) →〔段差〕→ P2(out) → … → P1(in)
+    var verts=[];
+    for(i=0;i<n;i++){
+      verts.push({x:xs[i], h:pts[i].hOut, i:i, side:'out'});
+      var j=(i+1)%n;
+      verts.push({x:xs[i+1], h:pts[j].dual?pts[j].hIn:pts[j].hOut, i:j, side:'in'});
+    }
+    return {xs:xs, ys:y, verts:verts, sx:sx, sy:sy};
+  }
+
+  // ===== 点まわりの配置 =====
+  // 奇数番号の点（P1,P3…）は「高さ→点名」を上側に、
+  // 偶数番号の点（P2,P4…）は「点名→高さ」を下側に置く。
+  function ptGeom(L, i){
+    var n=pts.length, k=(i===n)?0:i, p=pts[k], hs=[];
+    if(i===0) hs.push(p.hOut);
+    else if(i===n) hs.push(p.dual?p.hIn:p.hOut);
+    else { if(p.dual) hs.push(p.hIn); hs.push(p.hOut); }
+    var ys=hs.map(L.ys);
+    var top=Math.min(Math.min.apply(null,ys), DATUM-34)-8;
+    var bot=Math.max(Math.max.apply(null,ys), DATUM+34)+8;
+    var odd=(k%2===0);
+    return {
+      k:k, p:p, x:L.xs[i], top:top, bot:bot, odd:odd,
+      labY: odd ? top-10 : bot+22,   // 点名の位置
+      valY: odd ? top-34 : bot+46    // 高さの位置
+    };
+  }
+  // 高さ表記： [100] / 段差なら [100 / -200] ＝［到達側 / 出発側］
+  function hText(g){
+    var p=g.p;
+    if(!p.dual) return '['+fmt(p.hOut)+']';
+    return '['+fmt(p.hIn)+' / '+fmt(p.hOut)+']';
+  }
+
+  // ===== SVG 生成 =====
+  function buildSVG(mode){ // mode: 'edit' | 'final'
+    var L=layout(), n=pts.length, i;
+    var s='<svg viewBox="0 0 '+VB_W+' '+VB_H+'" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">';
+    s+='<defs>'+
+       '<marker id="arE" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">'+
+       '<path d="M0,0 L9,4 L0,8 z" fill="#57534e"/></marker>'+
+       '<marker id="arS" markerWidth="10" markerHeight="8" refX="1" refY="4" orient="auto">'+
+       '<path d="M10,0 L1,4 L10,8 z" fill="#57534e"/></marker></defs>';
+
+    // 地面の帯（基準ラインとの間を塗る）
+    var poly='';
+    for(i=0;i<L.verts.length;i++) poly+=L.verts[i].x+','+L.ys(L.verts[i].h)+' ';
+    s+='<polygon points="'+L.xs[0]+','+DATUM+' '+poly+L.xs[n]+','+DATUM+'" fill="#e7bcbc" fill-opacity="0.45"/>';
+
+    // 地面線
+    var pl='';
+    for(i=0;i<L.verts.length;i++) pl+=(i?' L':'M')+L.verts[i].x+','+L.ys(L.verts[i].h);
+    s+='<path d="'+pl+'" fill="none" stroke="#9a6b6b" stroke-width="2"/>';
+
+    // 基準ライン
+    s+='<line x1="30" y1="'+DATUM+'" x2="'+(VB_W-125)+'" y2="'+DATUM+'" stroke="#dc2626" '+
+       'stroke-width="2" stroke-dasharray="7 5"/>';
+    s+='<text x="'+(VB_W-118)+'" y="'+(DATUM+6)+'" font-size="17" fill="#dc2626">基準ライン 0</text>';
+
+    // 点の縦線と点名
+    for(i=0;i<=n;i++){
+      var g=ptGeom(L,i);
+      s+='<line x1="'+g.x+'" y1="'+g.top+'" x2="'+g.x+'" y2="'+g.bot+'" stroke="#57534e" stroke-width="1.5"/>';
+      s+='<text x="'+g.x+'" y="'+g.labY+'" font-size="21" text-anchor="middle" fill="#1c1917">'+ptName(g.k)+'</text>';
+    }
+
+    // 区間の寸法線：奇数区間は基準ラインの上、偶数区間は下
+    for(i=0;i<n;i++){
+      var dy=DATUM+(i%2===0?-DIMOFF:DIMOFF);
+      s+='<line x1="'+(L.xs[i]+4)+'" y1="'+dy+'" x2="'+(L.xs[i+1]-4)+'" y2="'+dy+'" stroke="#57534e" '+
+         'stroke-width="1.5" marker-start="url(#arS)" marker-end="url(#arE)"/>';
+    }
+
+    if(mode==='final'){
+      // 区間距離：赤で (1,000)
+      for(i=0;i<n;i++){
+        var mx=(L.xs[i]+L.xs[i+1])/2;
+        var dy2=DATUM+(i%2===0?-DIMOFF:DIMOFF);
+        s+=numText(mx, dy2+7, '('+fmt(dists[i])+')', '#dc2626');
+      }
+      // 高さ：緑で [100]（段差は [到達 / 出発]）
+      for(i=0;i<=n;i++){
+        var gg=ptGeom(L,i);
+        s+=numText(gg.x, gg.valY+1, hText(gg), '#16a34a');
+      }
+    }
+    s+='</svg>';
+    return s;
+  }
+  // 枠を持たない数値表記。背景の塗りに重なっても読めるよう白フチを付ける
+  function numText(x, y, txt, fill){
+    return '<text x="'+x+'" y="'+y+'" font-size="20" font-weight="600" text-anchor="middle" '+
+      'fill="'+fill+'" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" '+
+      'paint-order="stroke" style="paint-order:stroke">'+txt+'</text>';
+  }
+
+  // ===== 編集用ポンチ絵（SVG＋入力欄）=====
+  function renderSketch(){
+    var L=layout(), n=pts.length, i;
+    sketch.innerHTML=buildSVG('edit');
+
+    function place(xv, yv, cls, val, touched, onCommit, title){
+      var d=document.createElement('div');
+      d.className='fld '+cls;
+      d.style.left=(xv/VB_W*100)+'%';
+      d.style.top=(yv/VB_H*100)+'%';
+      var inp=document.createElement('input');
+      inp.type='text'; inp.inputMode='decimal';
+      inp.value=touched?String(val):'';
+      inp.placeholder='0';
+      inp.title=title||'';
+      inp.addEventListener('change',function(){
+        var v=num(inp.value);
+        if(v===null){ inp.value=touched?String(val):''; return; }
+        onCommit(v); save(); renderSketch();
+      });
+      inp.addEventListener('keydown',function(e){
+        if(e.key==='Enter'){ e.preventDefault(); inp.blur(); }
+      });
+      d.appendChild(inp); sketch.appendChild(d);
+    }
+    function slash(xv, yv){
+      var d=document.createElement('div');
+      d.className='fld sl';
+      d.style.left=(xv/VB_W*100)+'%';
+      d.style.top=(yv/VB_H*100)+'%';
+      d.textContent='/';
+      sketch.appendChild(d);
+    }
+
+    // 区間距離（奇数区間は上、偶数区間は下）
+    for(i=0;i<n;i++){
+      (function(k){
+        place((L.xs[k]+L.xs[k+1])/2, DATUM+(k%2===0?-DIMOFF:DIMOFF), 'd', dists[k], dSet[k],
+          function(v){ dists[k]=v; dSet[k]=true; },
+          ptName(k)+'–'+ptName((k+1)%n)+' の区間距離');
+      })(i);
+    }
+
+    // 高さ（点名の外側）
+    for(i=0;i<=n;i++){
+      (function(pos){
+        var g=ptGeom(L,pos), p=g.p, y=g.valY-6;
+        if(p.dual){
+          slash(g.x, y);
+          place(g.x-50, y, 'h', p.hIn, p.tIn,
+            function(v){ p.hIn=v; p.tIn=true; }, ptName(g.k)+' 到達側の高さ');
+          place(g.x+50, y, 'h', p.hOut, p.tOut,
+            function(v){ p.hOut=v; p.tOut=true; }, ptName(g.k)+' 出発側の高さ');
+        }else{
+          place(g.x, y, 'h', p.hOut, p.tOut,
+            function(v){ p.hOut=v; p.tOut=true; p.hIn=v; p.tIn=true; }, ptName(g.k)+' の高さ');
+        }
+      })(i);
+    }
+  }
+
+  // ===== 点ごとの操作（段差／挿入／削除）=====
+  function afterEdit(){
+    $('ptCount').value=pts.length;
+    card3.classList.remove('active');
+    $('resultArea').innerHTML='';
+    renderPtList(); renderSketch(); save();
+  }
+  function insertAfter(i){
+    if(pts.length>=24){ alert('点は 24 個までです。'); return; }
+    pts.splice(i+1,0,{dual:false,hIn:0,hOut:0,tIn:false,tOut:false});
+    dists.splice(i+1,0,0); dSet.splice(i+1,0,false);
+    dists[i]=0; dSet[i]=false;   // 分割された区間は入力し直し
+    afterEdit();
+  }
+  function removeAt(i){
+    if(pts.length<=3){ alert('点は 3 個以上必要です。'); return; }
+    if(!confirm(ptName(i)+' を削除します。以降の点は繰り上がり、'+
+      '前後の区間距離は入力し直しになります。よろしいですか？')) return;
+    pts.splice(i,1); dists.splice(i,1); dSet.splice(i,1);
+    var m=(i>0)?i-1:dists.length-1;   // 統合された区間
+    dists[m]=0; dSet[m]=false;
+    afterEdit();
+  }
+  function renderPtList(){
+    var box=$('ptList'); box.innerHTML='';
+    pts.forEach(function(p,i){
+      var row=document.createElement('span');
+      row.className='ptrow'+(p.dual?' on':'');
+
+      var nm=document.createElement('b'); nm.textContent=ptName(i);
+      row.appendChild(nm);
+
+      var lab=document.createElement('label'); lab.className='pttog';
+      var cb=document.createElement('input');
+      cb.type='checkbox'; cb.checked=p.dual;
+      cb.addEventListener('change',function(){
+        p.dual=cb.checked;
+        p.hIn=p.hOut; p.tIn=p.tOut;
+        renderPtList(); renderSketch(); save();
+      });
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode('段差'));
+      row.appendChild(lab);
+
+      var ins=document.createElement('button');
+      ins.type='button'; ins.className='mini'; ins.textContent='挿入';
+      ins.title=ptName(i)+' の後ろに点を1つ挿入します';
+      ins.onclick=function(){ insertAfter(i); };
+      row.appendChild(ins);
+
+      var del=document.createElement('button');
+      del.type='button'; del.className='mini danger'; del.textContent='削除';
+      del.title=ptName(i)+' を削除します';
+      del.onclick=function(){ removeAt(i); };
+      row.appendChild(del);
+
+      box.appendChild(row);
+    });
+  }
+
+  // ===== 構築 =====
+  function build(n, keep){
+    var old=pts, oldD=dists, oldSet=dSet;
+    pts=[]; dists=[]; dSet=[];
+    for(var i=0;i<n;i++){
+      var src=(keep&&old[i])?old[i]:{dual:false,hIn:0,hOut:0,tIn:false,tOut:false};
+      pts.push({dual:!!src.dual, hIn:Number(src.hIn)||0, hOut:Number(src.hOut)||0,
+                tIn:!!src.tIn, tOut:!!src.tOut});
+      dists.push((keep&&oldD[i])?Number(oldD[i])||0:0);
+      dSet.push(!!(keep&&oldSet[i]));
+    }
+    built=true;
+    card2.classList.add('active');
+    card3.classList.remove('active');
+    $('resultArea').innerHTML='';
+    renderPtList(); renderSketch();
+  }
+
+  $('makeBtn').onclick=function(){
+    var n=parseInt($('ptCount').value,10);
+    if(!(n>=3 && n<=24)){ alert('点数は 3 〜 24 の範囲で入力してください。'); return; }
+    build(n, built);
+    save();
+    card2.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  // ===== 計算 =====
+  function calculate(){
+    var n=pts.length, i;
+    if(!built){ alert('先にポンチ絵を作成してください。'); return; }
+    for(i=0;i<n;i++){
+      if(!(dists[i]>0)){
+        alert(ptName(i)+'–'+ptName((i+1)%n)+' の区間距離を正の数で入力してください。');
+        return;
+      }
+    }
+    var blank=[];
+    for(i=0;i<n;i++){
+      if(!pts[i].tOut) blank.push(ptName(i)+(pts[i].dual?'（出発側）':''));
+      if(pts[i].dual && !pts[i].tIn) blank.push(ptName(i)+'（到達側）');
+    }
+    if(blank.length){
+      if(!confirm('高さが未入力の欄があります：'+blank.join('、')+
+        '\nこれらを 0 として計算しますか？')) return;
+    }
+    var perimeter=0; for(i=0;i<n;i++) perimeter+=dists[i];
+
+    var segs=[], area=0;
+    for(i=0;i<n;i++){
+      var j=(i+1)%n;
+      var h0=pts[i].hOut, h1=pts[j].dual?pts[j].hIn:pts[j].hOut;
+      var a=(h0+h1)/2*dists[i];
+      area+=a;
+      segs.push({i:i,j:j,h0:h0,h1:h1,L:dists[i],area:a});
+    }
+    var jiban=area/perimeter;
+
+    var hs=allHeights();
+    var maxH=Math.max.apply(null,hs), minH=Math.min.apply(null,hs);
+    var diff=maxH-minH, over3m=diff>3000;
+
+    // 点の表
+    var ptTable='<table><thead><tr><th>点名</th><th>到達側の高さ (mm)</th><th>出発側の高さ (mm)</th>'+
+      '<th>次区間距離 b (mm)</th></tr></thead><tbody>';
+    for(i=0;i<n;i++){
+      var p=pts[i];
+      ptTable+='<tr><td>'+ptName(i)+'</td><td class="num">'+fmt(p.dual?p.hIn:p.hOut)+
+        '</td><td class="num">'+fmt(p.hOut)+'</td><td class="num">'+fmt(dists[i])+'</td></tr>';
+    }
+    ptTable+='</tbody></table>';
+
+    // 区間の表
+    var segTable='<table><thead><tr><th>区間</th><th>h<sub>始</sub> (mm)</th><th>h<sub>終</sub> (mm)</th>'+
+      '<th>(h<sub>始</sub>+h<sub>終</sub>)/2 (mm)</th><th>距離 b (mm)</th><th>区間面積 (mm²)</th></tr></thead><tbody>';
+    segs.forEach(function(s){
+      segTable+='<tr><td>'+ptName(s.i)+'–'+ptName(s.j)+'</td><td class="num">'+fmt(s.h0)+
+        '</td><td class="num">'+fmt(s.h1)+'</td><td class="num">'+fmt((s.h0+s.h1)/2)+
+        '</td><td class="num">'+fmt(s.L)+'</td><td class="num">'+fmt(s.area)+'</td></tr>';
+    });
+    segTable+='</tbody><tfoot><tr><td>合計</td><td class="num">—</td><td class="num">—</td>'+
+      '<td class="num">—</td><td class="num">'+fmt(perimeter)+'</td><td class="num">'+fmt(area)+'</td></tr></tfoot></table>';
+
+    // 計算式
+    var segExpr=segs.map(function(s){
+      return '('+fmt(s.h0)+' + '+fmt(s.h1)+')/2 × '+fmt(s.L)+' = '+fmt(s.area);
+    }).join('\n  ');
+    var formula=
+      '周長 ΣL = '+dists.map(fmt).join(' + ')+'\n       = '+fmt(perimeter)+' mm\n\n'+
+      '台形積算 ΣA =\n  '+segExpr+'\n  ────────────────────\n  ΣA = '+fmt(area)+' mm²\n\n'+
+      '地盤面 = ΣA ÷ ΣL = '+fmt(area)+' ÷ '+fmt(perimeter)+' = '+fmt(jiban)+' mm';
+
+    var judge = over3m
+      ? '<div class="warn"><b>⚠ 高低差が3mを超えています</b>（最高 '+fmt(maxH)+' − 最低 '+fmt(minH)+' = '+fmt(diff)+
+        ' mm）。施行令第2条第2項後段により、高低差3m以内ごとに区分し、区分ごとに平均地盤面を算定する必要があります。本結果（単一地盤面）はそのままでは使用できません。</div>'
+      : '<div class="ok">高低差 '+fmt(diff)+' mm ≦ 3,000 mm。施行令第2条第2項により、単一の地盤面として算定できます。</div>';
+
+    var pn=($('projName').value||'').trim();
+    $('resultArea').innerHTML=
+      (pn?'<p class="result" style="font-weight:600">物件名：'+esc(pn)+'</p>':'')+
+      '<p class="result">地盤面（入力した基準からの高さ）</p>'+
+      '<p class="bignum">'+fmt(jiban)+' mm</p>'+
+      judge+
+      '<div class="sub">求積図</div>'+
+      '<div class="scroller"><div class="sketch">'+buildSVG('final')+'</div></div>'+
+      '<div class="sub">入力した各点</div>'+ptTable+
+      '<div class="sub">区間ごとの台形面積</div>'+segTable+
+      '<div class="sub">計算過程</div><div class="formula">'+formula+'</div>';
+
+    card3.classList.add('active');
+    card3.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  $('calcBtn').onclick=calculate;
+
+  // ===== やり直し =====
+  $('clearValBtn').onclick=function(){
+    if(!built) return;
+    if(!confirm('ポンチ絵の形（点数・段差の設定）はそのままに、入力した数値だけを 0 に戻します。よろしいですか？')) return;
+    for(var i=0;i<pts.length;i++){
+      pts[i].hIn=0; pts[i].hOut=0; pts[i].tIn=false; pts[i].tOut=false;
+      dists[i]=0; dSet[i]=false;
+    }
+    card3.classList.remove('active'); $('resultArea').innerHTML='';
+    renderSketch(); save();
+  };
+  function reset(){
+    if(!confirm('入力データをすべて消去して最初からやり直します。よろしいですか？')) return;
+    pts=[]; dists=[]; built=false;
+    sketch.innerHTML=''; $('ptList').innerHTML='';
+    card2.classList.remove('active'); card3.classList.remove('active');
+    $('resultArea').innerHTML=''; $('projName').value=''; $('ptCount').value=4;
+    try{ localStorage.removeItem(LS_KEY); }catch(e){}
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  $('resetBtn').onclick=reset;
+  $('resetBtn2').onclick=reset;
+
+  // ===== 書出／読込 =====
+  $('saveFileBtn').onclick=function(){
+    if(!built){ alert('保存するデータがありません。'); return; }
+    var data={app:'jiban-maker', v:2, name:$('projName').value||'',
+      pts:pts, dists:dists, dSet:dSet, saved:new Date().toISOString()};
+    var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=((data.name||'jiban-data').replace(/[\\/:*?"<>|]/g,'_'))+'.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); },1000);
+  };
+  $('loadFileBtn').onclick=function(){ $('fileInput').click(); };
+  $('fileInput').addEventListener('change',function(e){
+    if(!e.target.files[0]) return;
+    var r=new FileReader();
+    r.onload=function(){
+      try{
+        var d=JSON.parse(r.result);
+        if(!load(d)) throw 0;
+        save();
+      }catch(err){
+        alert('読み込めませんでした。地盤面Maker v2 で書き出したJSONファイルを選んでください。'+
+              '\nv1 のファイルは形式が異なるため読み込めません。');
+      }
+      e.target.value='';
+    };
+    r.readAsText(e.target.files[0]);
+  });
+
+  function load(d){
+    if(!d || !Array.isArray(d.pts) || !Array.isArray(d.dists)) return false;
+    if(d.pts.length<3 || d.pts.length!==d.dists.length) return false;
+    pts=d.pts.map(function(p){
+      return {dual:!!p.dual, hIn:Number(p.hIn)||0, hOut:Number(p.hOut)||0,
+              tIn:('tIn' in p)?!!p.tIn:true, tOut:('tOut' in p)?!!p.tOut:true};
+    });
+    dists=d.dists.map(function(x){ return Number(x)||0; });
+    dSet=d.dists.map(function(x,i){ return Array.isArray(d.dSet)?!!d.dSet[i]:(Number(x)>0); });
+    $('projName').value=d.name||'';
+    $('ptCount').value=pts.length;
+    built=true;
+    card2.classList.add('active');
+    renderPtList(); renderSketch();
+    return true;
+  }
+
+  $('projName').addEventListener('input',save);
+
+  // ===== 起動時の復元 =====
+  (function restore(){
+    var d=null;
+    try{ d=JSON.parse(localStorage.getItem(LS_KEY)||'null'); }catch(e){}
+    if(d) load(d);
+  })();
+})();
+</script>
+</body>
+</html>
