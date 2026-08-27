@@ -96,7 +96,8 @@
     body{background:#fff;padding:0;} .noprint{display:none!important;}
     .card{border:1px solid #999;break-inside:avoid;}
     .step{opacity:1!important;}
-    .sketch{min-width:0;}
+    .sketch{min-width:0!important;}
+    .scroller{overflow-x:visible;}
   }
 </style>
 </head>
@@ -119,13 +120,13 @@
     <div class="row">
       <div style="max-width:200px">
         <label for="ptCount">建築物が地面と接する位置の点数</label>
-        <input type="number" id="ptCount" min="3" max="24" step="1" value="4">
+        <input type="number" id="ptCount" min="3" max="50" step="1" value="4">
       </div>
       <div style="flex:0 0 auto">
         <button id="makeBtn">ポンチ絵を作成</button>
       </div>
     </div>
-    <p class="hint">隅角部の数を入れてください。四角形なら 4 です。一周して始点に戻るため、区間数も同じ数になります。作成後に点数を変えると、入力済みの値は前から順に引き継がれます。</p>
+    <p class="hint">隅角部の数を入れてください。四角形なら 4 です。一周して始点に戻るため、区間数も同じ数になります。指定できるのは <b>3 〜 50</b> です。作成後に点数を変えると、入力済みの値は前から順に引き継がれます。点数が多いときはポンチ絵が横に広がるので、横スクロールしながら入力してください。</p>
   </div>
 
   <div class="card step" id="card2">
@@ -201,6 +202,24 @@
 
   // ===== 幾何 =====
   var VB_W=1200, VB_H=470, X0=95, X1=1105, DATUM=265, UP=140, DOWN=90, DIMOFF=30;
+  var MAX_PTS=50;            // 点数の上限
+  var MARGIN_R=95;           // 図の右余白（1200 幅のとき X1=1105）
+  var SEG_MIN=46;            // 1区間あたりに確保する viewBox 幅
+  var SEG_DUAL=92;           // 段差（高さ2つ）がある場合に必要な区間幅
+  var SCREEN_SCALE=0.75;     // viewBox 幅 → 画面上の最小表示幅（1200→900px と同じ比率）
+
+  // 点数が多いときだけ図の横幅を広げ、区間や数値が重ならないようにする。
+  // 21点までは従来どおり 1200 幅（＝見た目は現行と同じ）。
+  function fitWidth(){
+    var n=pts.length||4, dual=false, i;
+    for(i=0;i<pts.length;i++){ if(pts[i].dual){ dual=true; break; } }
+    VB_W=Math.max(1200, X0+MARGIN_R+n*(dual?SEG_DUAL:SEG_MIN));
+    X1=VB_W-MARGIN_R;
+  }
+  function sketchStyle(){
+    fitWidth();
+    return 'aspect-ratio:'+VB_W+' / '+VB_H+';min-width:'+Math.round(VB_W*SCREEN_SCALE)+'px';
+  }
 
   // 描画用の距離（未入力でも絵が潰れないように最小値を与える）
   function layoutDists(){
@@ -221,6 +240,7 @@
 
   // 展開図の頂点列（始点P1から一周して再びP1へ）
   function layout(){
+    fitWidth();
     var n=pts.length, ld=layoutDists(), i;
     var total=0; for(i=0;i<n;i++) total+=ld[i];
     var sx=(X1-X0)/total;
@@ -337,6 +357,7 @@
   // ===== 編集用ポンチ絵（SVG＋入力欄）=====
   function renderSketch(){
     var L=layout(), n=pts.length, i;
+    sketch.style.cssText=sketchStyle();
     sketch.innerHTML=buildSVG('edit');
 
     function place(xv, yv, cls, val, touched, onCommit, title){
@@ -403,7 +424,7 @@
     renderPtList(); renderSketch(); save();
   }
   function insertAfter(i){
-    if(pts.length>=24){ alert('点は 24 個までです。'); return; }
+    if(pts.length>=MAX_PTS){ alert('点は '+MAX_PTS+' 個までです。'); return; }
     pts.splice(i+1,0,{dual:false,hIn:0,hOut:0,tIn:false,tOut:false});
     dists.splice(i+1,0,0); dSet.splice(i+1,0,false);
     dists[i]=0; dSet[i]=false;   // 分割された区間は入力し直し
@@ -475,7 +496,7 @@
 
   $('makeBtn').onclick=function(){
     var n=parseInt($('ptCount').value,10);
-    if(!(n>=3 && n<=24)){ alert('点数は 3 〜 24 の範囲で入力してください。'); return; }
+    if(!(n>=3 && n<=MAX_PTS)){ alert('点数は 3 〜 '+MAX_PTS+' の範囲で入力してください。'); return; }
     build(n, built);
     save();
     card2.scrollIntoView({behavior:'smooth',block:'start'});
@@ -558,7 +579,7 @@
       '<p class="bignum">'+fmt(jiban)+' mm</p>'+
       judge+
       '<div class="sub">求積図</div>'+
-      '<div class="scroller"><div class="sketch">'+buildSVG('final')+'</div></div>'+
+      '<div class="scroller"><div class="sketch" style="'+sketchStyle()+'">'+buildSVG('final')+'</div></div>'+
       '<div class="sub">入力した各点</div>'+ptTable+
       '<div class="sub">区間ごとの台形面積</div>'+segTable+
       '<div class="sub">計算過程</div><div class="formula">'+formula+'</div>';
