@@ -102,6 +102,17 @@
   .foot{font-size:11px;color:var(--sub);margin-top:8px;}
   .sub{font-size:13px;color:var(--sub);margin:16px 0 4px;font-weight:600;}
 
+  /* ---- 点ごとの設定（折りたたみ）---- */
+  .ptopts{margin:16px 0 4px;border-top:1px solid var(--line);}
+  .ptopts>summary{font-size:13px;color:var(--sub);font-weight:600;cursor:pointer;
+    list-style:none;display:flex;align-items:center;gap:7px;padding:9px 2px;}
+  .ptopts>summary::-webkit-details-marker{display:none;}
+  .ptopts>summary::before{content:'▶';font-size:10px;color:var(--accent);}
+  .ptopts[open]>summary::before{content:'▼';}
+  .ptopts>summary:hover{color:var(--accent);}
+  .ptopts>summary:focus-visible{outline:2px solid var(--accent2);border-radius:5px;}
+  .optcount{font-weight:400;font-size:11px;color:var(--sub);}
+
   /* ---- 入力状況バッジ ---- */
   .badge{display:inline-block;font-size:11px;padding:2px 9px;border-radius:999px;
     background:#f5f5f4;border:1px solid var(--line);color:var(--sub);
@@ -190,10 +201,12 @@
       <div class="sketch" id="sketch"></div>
     </div>
     <p class="hint">数値を確定（<b>Tab</b> または <b>Enter</b>）すると絵が描き直され、実際の寸法比に近づきます。入力途中は模式的な形で表示されます。</p>
-    <div class="sub">点ごとの設定</div>
-    <p class="hint" style="margin-top:0"><b>段差</b>…擁壁やからぼりなどで、その点を境に地面が鉛直に切り替わる場合にチェックすると、<b>到達側</b>と<b>出発側</b>の 2 つの高さを入力できます。<br>
-    <b>挿入</b>…その点の後ろに点を 1 つ追加します（以降の点は繰り下がります）。<b>削除</b>…その点を削除します（以降の点は繰り上がります）。いずれも区間距離が分割・統合されるため、その区間は入力し直しになります。</p>
-    <div class="ptlist noprint" id="ptList"></div>
+    <details class="ptopts noprint" id="ptOpts">
+      <summary>点ごとの設定<span class="optcount" id="ptOptsCount"></span></summary>
+      <p class="hint" style="margin-top:0"><b>段差</b>…擁壁やからぼりなどで、その点を境に地面が鉛直に切り替わる場合にチェックすると、<b>到達側</b>と<b>出発側</b>の 2 つの高さを入力できます。<br>
+      <b>挿入</b>…その点の後ろに点を 1 つ追加します（以降の点は繰り下がります）。<b>削除</b>…その点を削除します（以降の点は繰り上がります）。いずれも区間距離が分割・統合されるため、その区間は入力し直しになります。</p>
+      <div class="ptlist" id="ptList"></div>
+    </details>
     <div class="badgerow noprint" id="badgeRow"></div>
     <div class="peri noprint">
       <div style="max-width:200px">
@@ -280,6 +293,23 @@
       var n=$('savedNote'); n.textContent='自動保存しました';
       clearTimeout(saveTimer); saveTimer=setTimeout(function(){n.textContent='';},1500);
     }catch(e){/* localStorage不可環境は無視 */}
+  }
+
+  // ===== 点ごとの設定（折りたたみ）の開閉状態 =====
+  var OPTS_KEY = LS_KEY + '.optsOpen';
+  function initOpts(){
+    var d=$('ptOpts'); if(!d) return;
+    var v=null; try{ v=localStorage.getItem(OPTS_KEY); }catch(e){}
+    d.open = (v==='1');                     // 既定は閉じた状態
+    d.addEventListener('toggle',function(){
+      try{ localStorage.setItem(OPTS_KEY, d.open?'1':'0'); }catch(e){}
+    });
+  }
+  function updateOptsCount(){
+    var el=$('ptOptsCount'); if(!el) return;
+    if(!pts.length){ el.textContent=''; return; }
+    var c=0; pts.forEach(function(p){ if(p.dual) c++; });
+    el.textContent='（'+pts.length+' 点'+(c?'／段差 '+c+' か所':'')+'）';
   }
 
   // ===== 幾何 =====
@@ -667,6 +697,7 @@
     afterEdit();
   }
   function renderPtList(){
+    updateOptsCount();
     var box=$('ptList'); box.innerHTML='';
     pts.forEach(function(p,i){
       var row=document.createElement('span');
@@ -962,6 +993,7 @@
     pts=[]; dists=[]; dSet=[]; built=false;
     lastCalc=null; showRegions=null;
     sketch.innerHTML=''; $('ptList').innerHTML=''; $('badgeRow').innerHTML='';
+    updateOptsCount();
     card2.classList.remove('active'); card3.classList.remove('active');
     $('resultArea').innerHTML=''; $('projName').value=''; $('periRef').value='';
     $('ptCount').value=4;
@@ -1026,6 +1058,8 @@
     card3.classList.remove('active'); $('resultArea').innerHTML='';
     card2.classList.add('active');
     renderPtList(); renderSketch();
+    // 段差が設定済みのデータを読み込んだときは、見落とさないよう開いておく
+    for(var i=0;i<pts.length;i++){ if(pts[i].dual){ $('ptOpts').open=true; break; } }
     return true;
   }
 
@@ -1054,6 +1088,7 @@
   };
 
   // ===== 起動時の復元 =====
+  initOpts();
   (function restore(){
     var d=null;
     try{ d=JSON.parse(localStorage.getItem(LS_KEY)||'null'); }catch(e){}
